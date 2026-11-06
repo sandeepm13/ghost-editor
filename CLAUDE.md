@@ -1,4 +1,5 @@
 ## Windows port rules (Phase 1)
+Read docs/PHASE1-PLAN.md at the start of every session, and update its Status section at the end of every step.
 Goal: this skill runs on native Windows 11 the same as on macOS.
 Machine: Windows 11, Git Bash, Python 3.12 venv at D:\venvs\ghost-editor, Node 24 at D:\Node, ffmpeg 9 (gyan.dev full build), RTX 3050 Laptop GPU with 4 GB VRAM, 16 GB RAM.
 The Windows user folder has a SPACE in it (C:\Users\Sandeep Mopuri). Quote every path, in bash and in code.
