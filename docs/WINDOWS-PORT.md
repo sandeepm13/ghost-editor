@@ -8,6 +8,7 @@ Every Windows change on the `windows-port` branch gets one row here. Rules are i
 | docs/WINDOWS-PORT.md | added this change log | track each Windows change and its test | n/a (docs) |
 | scripts/emoji_fetch.py | win32-only `sys.stdout/stderr.reconfigure(encoding="utf-8")`; `encoding="utf-8"` on the manifest read and write | it runs under `python -I`, which ignores PYTHONUTF8: piped stdout was cp1252 and all 64 emoji failed | `python -I scripts/emoji_fetch.py` re-run: 64 emoji (step 1) |
 | docs/PHASE1-PLAN.md | the Phase 1 plan, known Windows issues, status | one place for the plan and where it stands | n/a (docs) |
+| scripts/plat.py, scripts/lib/plat.mjs | new: IS_WIN, venv_python/venv_bin, npx_cmd, python_cmd, link_or_copy, git_bash (camelCase in Node). Off Windows each returns what the code used before | one home for every platform check (rule 5) | `python scripts/plat.py`, `node scripts/lib/plat.mjs` print each value; npx through both runs npm 12.2.0 like plain `npx`; link_or_copy gives a hard link here (no Developer Mode); GIT_BASH set to WSL's or the WindowsApps bash is skipped; non-Windows branch asserted equal to the old strings |
 
 ## Setup done on this machine
 
