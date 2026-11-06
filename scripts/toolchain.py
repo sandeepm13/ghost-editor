@@ -17,7 +17,7 @@ MediaPipe (facescan.py flags -> plan_cut.py edges), OpenCV major.minor (face_tra
 What does not (printed as info): node, the Python minor version, google-genai, patch versions.
 """
 import argparse, glob, json, os, re, shutil, socket, subprocess, sys, time
-from plat import venv_python
+from plat import IS_WIN, python_cmd, venv_python
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
@@ -71,10 +71,11 @@ def media_py():
     """the python the skill's media scripts use: $MEDIA_PY, python3 when it has numpy, else ~/.venvs/media (doctor.sh)"""
     if os.environ.get("MEDIA_PY"):
         return os.environ["MEDIA_PY"]
-    if shutil.which("python3") and subprocess.run(["python3", "-c", "import numpy"], capture_output=True).returncode == 0:
-        return shutil.which("python3")
+    py3 = python_cmd() if IS_WIN else "python3"  # Windows: "python3" on PATH may be the Microsoft Store stub
+    if shutil.which(py3) and subprocess.run([py3, "-c", "import numpy"], capture_output=True).returncode == 0:
+        return shutil.which(py3)
     p = venv_python(os.path.expanduser("~/.venvs/media"))
-    return p if os.path.exists(p) else shutil.which("python3")
+    return p if os.path.exists(p) else shutil.which(py3)
 
 
 def hf_pinned():
