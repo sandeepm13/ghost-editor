@@ -35,9 +35,12 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 import zlib
 
 SKILL = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+sys.path.append(os.path.join(SKILL, "scripts"))
+from plat import link_or_copy  # noqa: E402
 X264_THREADS = open(os.path.join(SKILL, "scripts", "X264_THREADS")).read().strip()  # every libx264 encode (scripts/x264.py)
 LIB = os.path.join(SKILL, "library")
 FONTS = os.path.join(SKILL, "templates", "fonts")
@@ -575,7 +578,7 @@ def new_project(P, src, plate=None):
     for f in (plate, "voice.wav"):
         dst = os.path.join(P, "assets", f)
         if not os.path.lexists(dst):
-            os.symlink(os.path.join(src, "assets", f), dst)
+            link_or_copy(os.path.join(src, "assets", f), dst)
     for f, g in (("words.cut.json", "words.cut.json"), ("words.json", "words.json"), ("plan.json", "cut_plan.json"),
                  ("cover_windows.json", "cover_windows.json")):
         s_, d_ = os.path.join(src, "build", f), os.path.join(P, "build", g)
