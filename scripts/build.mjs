@@ -38,7 +38,7 @@ import { TEMPLATE_NAMES, buildTemplateCaptions } from "./lib/caption-templates.m
 import { aiTag } from "./lib/ai-tag.mjs";
 import { findTaste, loadTaste, applyTaste, checkTaste, bannedSfx } from "./lib/taste.mjs";
 import { STAN_CSS, isStanBeat, stanPrepare, stanBeat, stanPipTweens, buildChestCaptions, stanMatteWindows } from "./lib/stan.mjs";
-import { venvPython } from "./lib/plat.mjs";
+import { venvPython, npxCmd } from "./lib/plat.mjs";
 
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LIB = path.join(SKILL, "library");
@@ -487,7 +487,8 @@ if (spec.matte || panelMatte.length) {
   } else if (!fs.existsSync(mp)) {
     if (mcfg.engine !== "hyperframes") warn.push(`matte: BiRefNet venv not set up (bash ${path.join(SKILL, "scripts", "setup_matte.sh")}); used hyperframes remove-background (u2net: softer, jumpier edges)`);
     console.log("cutting the speaker out (hyperframes remove-background, ~4 fps; cached in assets/talk-matte.webm)...");
-    execFileSync("npx", ["-y", HF, "remove-background", path.resolve(proj, SRC), "-o", mp], { stdio: ["ignore", "ignore", "pipe"], cwd: proj, maxBuffer: 1 << 28 }); console.log("  matte done");
+    const [npx, ...npxArgs] = npxCmd("-y", HF, "remove-background", path.resolve(proj, SRC), "-o", mp);
+    execFileSync(npx, npxArgs, { stdio: ["ignore", "ignore", "pipe"], cwd: proj, maxBuffer: 1 << 28 }); console.log("  matte done");
   }
   if (spec.matte) matteHtml = takes.map((k, i) => `
       <video id="matte-${i}" class="matte" src="assets/talk-matte.webm" data-start="${fgrid(k.f0)}" data-duration="${fgrid(k.frames)}" data-media-start="${k.a}" data-track-index="2" muted playsinline></video>`).join("");

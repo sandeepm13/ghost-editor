@@ -12,6 +12,8 @@ fixes the audio mix's input order so the same reel gets the same audio on every 
 """
 import os
 
+from plat import npx_cmd
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 FILE = os.path.join(HERE, "HF_VERSION")
 PINNED = open(FILE).read().strip()
@@ -20,4 +22,4 @@ os.environ.setdefault("HYPERFRAMES_FFMPEG_PATH", os.path.join(HERE, "hf_ffmpeg.s
 
 
 def hf(*args):
-    return ["npx", "-y", f"hyperframes@{VERSION}", *args]
+    return npx_cmd("-y", f"hyperframes@{VERSION}", *args)
