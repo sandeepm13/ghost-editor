@@ -64,6 +64,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from hf_version import VERSION as HF_VERSION, hf  # noqa: E402  (scripts/HF_VERSION)
 from x264 import THREADS as X264_THREADS  # noqa: E402  (scripts/X264_THREADS)
+from plat import venv_python  # noqa: E402
 HOME = os.path.expanduser("~")
 # style name -> (recipe dir, broll_qa profile)
 STYLES = {"clean os": ("clean-os", "talking-head"), "face result": ("result-podcast", "talking-head"),
@@ -85,7 +86,7 @@ H264 = ["-c:v", "libx264", "-threads", X264_THREADS, "-preset", "slow", "-crf", 
 
 
 def media_py():
-    for p in (os.environ.get("MEDIA_PY"), os.path.join(HOME, ".venvs/media/bin/python"), sys.executable):
+    for p in (os.environ.get("MEDIA_PY"), venv_python(os.path.join(HOME, ".venvs/media")), sys.executable):
         if p and os.path.exists(p) and subprocess.run([p, "-c", "import numpy, cv2"], capture_output=True).returncode == 0:
             return p
     return sys.executable

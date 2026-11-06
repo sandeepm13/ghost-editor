@@ -17,6 +17,7 @@ MediaPipe (facescan.py flags -> plan_cut.py edges), OpenCV major.minor (face_tra
 What does not (printed as info): node, the Python minor version, google-genai, patch versions.
 """
 import argparse, glob, json, os, re, shutil, socket, subprocess, sys, time
+from plat import venv_python
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
@@ -72,7 +73,7 @@ def media_py():
         return os.environ["MEDIA_PY"]
     if shutil.which("python3") and subprocess.run(["python3", "-c", "import numpy"], capture_output=True).returncode == 0:
         return shutil.which("python3")
-    p = os.path.expanduser("~/.venvs/media/bin/python")
+    p = venv_python(os.path.expanduser("~/.venvs/media"))
     return p if os.path.exists(p) else shutil.which("python3")
 
 
@@ -109,7 +110,7 @@ def snapshot():
     fp["media_python"] = {"path": mp, **(py_versions(mp) or {})}
     mlx = os.environ.get("MLXW_PY") or os.path.expanduser("~/.venvs/mlxw/bin/python")
     fp["mlx_python"] = ({"path": mlx, **(py_versions(mlx) or {})} if os.path.exists(mlx) else None)
-    aq = os.path.join(os.environ.get("AUDIOQA_VENV") or os.path.expanduser("~/.venvs/ghost-audioqa"), "bin", "python")
+    aq = venv_python(os.environ.get("AUDIOQA_VENV") or os.path.expanduser("~/.venvs/ghost-audioqa"))
     fp["audioqa_python"] = ({"path": aq, **(py_versions(aq) or {})} if os.path.exists(aq) else None)
     return fp
 
