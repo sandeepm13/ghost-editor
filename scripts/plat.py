@@ -14,6 +14,7 @@ is unchanged; only sys.platform == "win32" takes the other branch. Change log: d
     git_bash()                 "bash"; on Windows Git for Windows' bash.exe (never WSL's or the WindowsApps one), or None
     hf_ffmpeg("hf_mix_pcm")    scripts/hf_mix_pcm.sh; on Windows scripts\\win-bin\\hf_mix_pcm.exe (setup_hf_ffmpeg.py)
     ff_filter_path(p)          p; on Windows 'D\\:/x/y.cube' for an ffmpeg filter option
+    open_path(p)               `open p` (default app / browser); on Windows os.startfile
 """
 import functools
 import os
@@ -101,6 +102,14 @@ def hf_ffmpeg(name="hf_ffmpeg"):
     if not os.path.isfile(exe) and os.path.basename(sys.argv[0]) != "setup_hf_ffmpeg.py":
         print(f"WARNING {exe} missing: run python scripts/setup_hf_ffmpeg.py (HyperFrames renders will fail)", file=sys.stderr)
     return exe
+
+
+def open_path(p):
+    """show a file in its default app (an .html page in the browser): `open p`; on Windows os.startfile (like `start`)"""
+    if not IS_WIN:
+        subprocess.run(["open", p])
+        return
+    os.startfile(os.path.abspath(p))
 
 
 def ff_filter_path(p):
