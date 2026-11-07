@@ -15,6 +15,7 @@ is unchanged; only sys.platform == "win32" takes the other branch. Change log: d
     hf_ffmpeg("hf_mix_pcm")    scripts/hf_mix_pcm.sh; on Windows scripts\\win-bin\\hf_mix_pcm.exe (setup_hf_ffmpeg.py)
     ff_filter_path(p)          p; on Windows 'D\\:/x/y.cube' for an ffmpeg filter option
     open_path(p)               `open p` (default app / browser); on Windows os.startfile
+    lock_nb(f) / unlock(f)     fcntl.flock LOCK_EX|LOCK_NB / LOCK_UN; on Windows msvcrt.locking (no fcntl there)
 """
 import functools
 import os
@@ -102,6 +103,32 @@ def hf_ffmpeg(name="hf_ffmpeg"):
     if not os.path.isfile(exe) and os.path.basename(sys.argv[0]) != "setup_hf_ffmpeg.py":
         print(f"WARNING {exe} missing: run python scripts/setup_hf_ffmpeg.py (HyperFrames renders will fail)", file=sys.stderr)
     return exe
+
+
+def lock_nb(f):
+    """exclusive non-blocking lock on an open file: fcntl.flock(f, LOCK_EX | LOCK_NB), BlockingIOError while another
+    process holds it; on Windows (no fcntl) msvcrt.locking on the file's first byte, same exception"""
+    if not IS_WIN:
+        import fcntl
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return
+    import msvcrt
+    f.seek(0)
+    try:
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError as e:
+        raise BlockingIOError(*e.args) from e
+
+
+def unlock(f):
+    """release lock_nb: fcntl.flock(f, LOCK_UN); on Windows msvcrt.locking LK_UNLCK on the first byte"""
+    if not IS_WIN:
+        import fcntl
+        fcntl.flock(f, fcntl.LOCK_UN)
+        return
+    import msvcrt
+    f.seek(0)
+    msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def open_path(p):

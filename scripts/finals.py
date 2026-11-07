@@ -50,7 +50,6 @@ import argparse
 import contextlib
 import csv
 import datetime as dt
-import fcntl
 import hashlib
 import json
 import os
@@ -64,7 +63,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from hf_version import VERSION as HF_VERSION, hf  # noqa: E402  (scripts/HF_VERSION)
 from x264 import THREADS as X264_THREADS  # noqa: E402  (scripts/X264_THREADS)
-from plat import venv_python  # noqa: E402
+from plat import hf_ffmpeg, lock_nb, unlock, venv_python  # noqa: E402
 HOME = os.path.expanduser("~")
 # style name -> (recipe dir, broll_qa profile)
 STYLES = {"clean os": ("clean-os", "talking-head"), "face result": ("result-podcast", "talking-head"),
@@ -273,7 +272,7 @@ def nomusic(r):
     tmp = os.path.join(r["out"], f".nomusic-{r['name']}.mp4")
     pcm = os.path.join(r["out"], f".nomusic-{r['name']}.wav")
     log = os.path.join(r["out"], f"{r['name']} (no music).log")
-    env = dict(os.environ, HYPERFRAMES_FFMPEG_PATH=os.path.join(HERE, "hf_mix_pcm.sh"), HF_MIX_PCM=pcm)
+    env = dict(os.environ, HYPERFRAMES_FFMPEG_PATH=hf_ffmpeg("hf_mix_pcm"), HF_MIX_PCM=pcm)
     t0 = time.time()
     for x in (tmp, pcm):
         if os.path.exists(x):
@@ -475,7 +474,7 @@ def tracker_lock(content):
     t0 = time.time()
     while True:
         try:
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_nb(f)
             break
         except BlockingIOError:
             if time.time() - t0 > 120:
@@ -484,7 +483,7 @@ def tracker_lock(content):
     try:
         yield
     finally:
-        fcntl.flock(f, fcntl.LOCK_UN)
+        unlock(f)
         f.close()
 
 
