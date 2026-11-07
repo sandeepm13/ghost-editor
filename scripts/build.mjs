@@ -688,7 +688,7 @@ for (const b of beatsList) {
     }
     case "broll": {
       // full-bleed video cutaway (e.g. AI B-roll): timed muted video inside an UNtimed wrapper, like meme clips;
-      // captions (z 8) stay on top. "in" = seconds into the clip, "zoom" = [from, to] slow push.
+      // captions (z 8) stay on top unless captions: false. "in" = seconds into the clip, "zoom" = [from, to] slow push.
       // mode "split": the clip fills the top `h` px and the speaker plate slides down into the bottom panel
       const src = userAsset(b.src);
       const [z0, z1] = b.zoom ?? [1.0, 1.08];
@@ -700,6 +700,7 @@ for (const b of beatsList) {
       tl.push(`ft("#${id}-v", { scale: ${z0} }, { scale: ${z1}, duration: ${dur}, ease: "none" }, ${t0});`);
       tl.push(`tl.to("#${id}-in", { autoAlpha: 0, duration: 0.1 }, ${r3(t1 - 0.1)});`);
       if (b.sfx) beatSfx(b, t0, null, "broll in");
+      if (b.captions === false) hiddenCaps.push([t0, t1]); // the clip says the line itself (e.g. an animation): no caption on top
       break;
     }
     case "title": {
