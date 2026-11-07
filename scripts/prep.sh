@@ -19,15 +19,15 @@ set -euo pipefail
 src="$1"; proj="$2"; out="$proj/assets/talk.mp4"
 mkdir -p "$proj/assets"
 
-read -r w h < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$src" | tr ',' ' ')
-rot=$(ffprobe -v error -select_streams v:0 -show_entries stream_side_data=rotation -of csv=p=0 "$src" | head -1 | tr -d ',- ')
+read -r w h < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$src" | tr -d '\r' | tr ',' ' ')
+rot=$(ffprobe -v error -select_streams v:0 -show_entries stream_side_data=rotation -of csv=p=0 "$src" | head -1 | tr -d ',\r -')
 if [ "${rot:-0}" = "90" ] || [ "${rot:-0}" = "270" ]; then t=$w; w=$h; h=$t; fi
 echo "source ${w}x${h} (rotation ${rot:-none}), $(ffprobe -v error -show_entries format=duration -of csv=p=0 "$src") s"
 if [ "$w" -lt "$h" ]; then vf="scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30"
 else vf="crop=ih*9/16:ih,scale=1080:1920,fps=30"; echo "landscape source: centre-cropping to 9:16"; fi
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-tr=$(ffprobe -v error -select_streams v:0 -show_entries stream=color_transfer -of csv=p=0 "$src" | head -1 | tr -d ',')
+tr=$(ffprobe -v error -select_streams v:0 -show_entries stream=color_transfer -of csv=p=0 "$src" | head -1 | tr -d ',\r')
 if [ "$tr" = "arib-std-b67" ] || [ "$tr" = "smpte2084" ]; then
   PY=python3; $PY -c "import numpy" 2>/dev/null || PY="$HOME/.venvs/media/bin/python"
   "$PY" -c "import numpy" 2>/dev/null || { echo "HDR source ($tr): tone-mapping needs python with numpy (set PATH or ~/.venvs/media)" >&2; exit 1; }
