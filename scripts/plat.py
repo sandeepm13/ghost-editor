@@ -17,6 +17,7 @@ is unchanged; only sys.platform == "win32" takes the other branch. Change log: d
     open_path(p)               `open p` (default app / browser); on Windows os.startfile
     ocr_cmd()                  osascript + ocr_text.js (macOS Vision); on Windows python ocr_text_rapid.py (RapidOCR)
     own_footage_roots(roots)   roots; on Windows $OWN_FOOTAGE_ROOTS or the existing Pictures / Videos / Camera Roll
+    machine_name()             (Windows only) "CPU, RAM GB, NVIDIA GPU" for cutout_fx.platform_name()
     lock_nb(f) / unlock(f)     fcntl.flock LOCK_EX|LOCK_NB / LOCK_UN; on Windows msvcrt.locking (no fcntl there)
     cuda_dlls()                None; on Windows torch\\lib (CUDA 12 + cuDNN 9 DLLs) first on PATH for faster-whisper
 """
@@ -210,6 +211,27 @@ def own_footage_roots(roots):
     for c in cands:
         if c and os.path.isdir(c) and os.path.normcase(os.path.abspath(c)) not in [os.path.normcase(o) for o in out]:
             out.append(os.path.abspath(c))
+    return out
+
+
+def machine_name():
+    """Windows: "<CPU name>, <RAM> GB[, <NVIDIA GPU>]" (the Windows twin of cutout_fx.platform_name's sysctl line);
+    the GPU part only when nvidia-smi answers"""
+    import ctypes
+    import winreg
+    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as k:
+        cpu = " ".join(str(winreg.QueryValueEx(k, "ProcessorNameString")[0]).split())
+    kb = ctypes.c_ulonglong()   # installed RAM, like the Mac's hw.memsize (not the smaller usable amount)
+    ctypes.windll.kernel32.GetPhysicallyInstalledSystemMemory(ctypes.byref(kb))
+    out = f"{cpu}, {kb.value / 2**20:.0f} GB"
+    if shutil.which("nvidia-smi"):
+        try:
+            r = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True, timeout=10)
+            gpus = [g.strip() for g in r.stdout.splitlines() if g.strip()] if r.returncode == 0 else []
+            if gpus:
+                out += ", " + " + ".join(gpus)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
     return out
 
 

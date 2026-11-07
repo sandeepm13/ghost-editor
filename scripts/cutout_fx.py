@@ -499,6 +499,12 @@ def bench(src, ss, nframes=30, configs=("portrait@1024", "lite@1024", "lite@768"
 
 
 def platform_name():
+    if sys.platform == "win32":   # no sysctl: CPU + RAM + NVIDIA GPU (plat.machine_name)
+        try:
+            from plat import machine_name
+            return machine_name()
+        except Exception:
+            return sys.platform
     try:
         chip = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True).stdout.strip()
         mem = int(subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True).stdout) / 2**30
