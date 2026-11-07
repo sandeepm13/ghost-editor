@@ -94,6 +94,12 @@ def snapshot():
     fp["ffmpeg"] = {"version": m.group(1) if m else None,
                     "libs": sorted(x for x in ("libass", "libx264", "libx265", "libvpx", "libzimg", "libplacebo", "libfreetype", "videotoolbox")
                                    if f"enable-{x}" in conf or (x == "videotoolbox" and "videotoolbox" in run(["ffmpeg", "-hide_banner", "-hwaccels"])))}
+    if IS_WIN:  # no videotoolbox here: record (never used for renders) whether NVENC encodes: built in AND the driver takes it
+        try:
+            fp["ffmpeg"]["h264_nvenc"] = subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=s=256x256:d=0.1", "-frames:v", "1",
+                                                         "-c:v", "h264_nvenc", "-f", "null", "-"], capture_output=True, timeout=60).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            fp["ffmpeg"]["h264_nvenc"] = False
     if shutil.which("brew"):
         bv = {}
         for line in run(["brew", "list", "--versions", "ffmpeg", "x264", "x265", "libass", "node", "python@3.11", "python@3.12", "python@3.13", "python@3.14"], timeout=120, any_rc=True).splitlines():
