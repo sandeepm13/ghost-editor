@@ -15,6 +15,7 @@ is unchanged; only sys.platform == "win32" takes the other branch. Change log: d
     hf_ffmpeg("hf_mix_pcm")    scripts/hf_mix_pcm.sh; on Windows scripts\\win-bin\\hf_mix_pcm.exe (setup_hf_ffmpeg.py)
     ff_filter_path(p)          p; on Windows 'D\\:/x/y.cube' for an ffmpeg filter option
     open_path(p)               `open p` (default app / browser); on Windows os.startfile
+    ocr_cmd()                  osascript + ocr_text.js (macOS Vision); on Windows python ocr_text_rapid.py (RapidOCR)
     lock_nb(f) / unlock(f)     fcntl.flock LOCK_EX|LOCK_NB / LOCK_UN; on Windows msvcrt.locking (no fcntl there)
     cuda_dlls()                None; on Windows torch\\lib (CUDA 12 + cuDNN 9 DLLs) first on PATH for faster-whisper
 """
@@ -150,6 +151,21 @@ def cuda_dlls():
         os.environ["PATH"] = lib + os.pathsep + os.environ.get("PATH", "")
         os.add_dll_directory(lib)
     return lib
+
+
+def ocr_cmd():
+    """the caption OCR command (broll_qa.py appends the frame paths; one JSON line per image back): macOS Vision through
+    `osascript -l JavaScript ocr_text.js`, None off macOS or without osascript; on Windows RapidOCR through
+    ocr_text_rapid.py (same output), None when rapidocr-onnxruntime is not installed"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if not IS_WIN:
+        if sys.platform != "darwin" or not shutil.which("osascript"):
+            return None
+        return ["osascript", "-l", "JavaScript", os.path.join(here, "ocr_text.js")]
+    import importlib.util
+    if importlib.util.find_spec("rapidocr_onnxruntime") is None:
+        return None
+    return [sys.executable, os.path.join(here, "ocr_text_rapid.py")]
 
 
 def open_path(p):
