@@ -12,6 +12,7 @@ is unchanged; only sys.platform == "win32" takes the other branch. Change log: d
     python_cmd()               the running interpreter (sys.executable)
     link_or_copy(src, dst)     os.symlink; on Windows without symlink rights a hard link, else a copy
     git_bash()                 "bash"; on Windows Git for Windows' bash.exe (never WSL's or the WindowsApps one), or None
+    hf_ffmpeg("hf_mix_pcm")    scripts/hf_mix_pcm.sh; on Windows scripts\\win-bin\\hf_mix_pcm.exe (setup_hf_ffmpeg.py)
 """
 import functools
 import os
@@ -89,6 +90,18 @@ def link_or_copy(src, dst):
         return "copy"
 
 
+def hf_ffmpeg(name="hf_ffmpeg"):
+    """the ffmpeg wrapper HyperFrames runs (HYPERFRAMES_FFMPEG_PATH): scripts/<name>.sh; on Windows the launcher
+    scripts\\win-bin\\<name>.exe that setup_hf_ffmpeg.py builds (Node starts ffmpeg without a shell: no .sh, no .cmd)"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if not IS_WIN:
+        return os.path.join(here, name + ".sh")
+    exe = os.path.join(here, "win-bin", name + ".exe")
+    if not os.path.isfile(exe) and os.path.basename(sys.argv[0]) != "setup_hf_ffmpeg.py":
+        print(f"WARNING {exe} missing: run python scripts/setup_hf_ffmpeg.py (HyperFrames renders will fail)", file=sys.stderr)
+    return exe
+
+
 def _wsl_bash(p):
     p = os.path.normcase(p)
     return os.path.normcase(os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32")) in p or "windowsapps" in p
@@ -118,5 +131,6 @@ if __name__ == "__main__":  # python scripts/plat.py: what each helper gives on 
     v = os.path.expanduser(os.path.join("~", ".venvs", "ghost-matte"))
     for k, val in [("IS_WIN", IS_WIN), ("venv_python(~/.venvs/ghost-matte)", venv_python(v)),
                    ("venv_bin(~/.venvs/ghost-matte, 'pip')", venv_bin(v, "pip")), ("npx_cmd('--version')", npx_cmd("--version")),
-                   ("python_cmd()", python_cmd()), ("git_bash()", git_bash())]:
+                   ("python_cmd()", python_cmd()), ("git_bash()", git_bash()), ("hf_ffmpeg()", hf_ffmpeg()),
+                   ("hf_ffmpeg('hf_mix_pcm')", hf_ffmpeg("hf_mix_pcm"))]:
         print(f"{k:40} {val}")
