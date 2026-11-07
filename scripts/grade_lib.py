@@ -344,7 +344,8 @@ def sdr_vf(src, cube):
     if not tr:
         return ""
     write_cube(cube, dict(IDENT), tr)
-    return (f"scale=in_color_matrix=bt2020:flags={SCALE_FLAGS},format=rgb48le,lut3d=file={cube}:interp=tetrahedral,"
+    from plat import ff_filter_path
+    return (f"scale=in_color_matrix=bt2020:flags={SCALE_FLAGS},format=rgb48le,lut3d=file={ff_filter_path(cube)}:interp=tetrahedral,"
             f"scale=out_color_matrix=bt709:out_range=tv:flags={SCALE_FLAGS},format=yuv420p,"
             f"setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv")   # frame tags win over -color_trc
 

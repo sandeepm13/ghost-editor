@@ -13,6 +13,7 @@ is unchanged; only sys.platform == "win32" takes the other branch. Change log: d
     link_or_copy(src, dst)     os.symlink; on Windows without symlink rights a hard link, else a copy
     git_bash()                 "bash"; on Windows Git for Windows' bash.exe (never WSL's or the WindowsApps one), or None
     hf_ffmpeg("hf_mix_pcm")    scripts/hf_mix_pcm.sh; on Windows scripts\\win-bin\\hf_mix_pcm.exe (setup_hf_ffmpeg.py)
+    ff_filter_path(p)          p; on Windows 'D\\:/x/y.cube' for an ffmpeg filter option
 """
 import functools
 import os
@@ -100,6 +101,14 @@ def hf_ffmpeg(name="hf_ffmpeg"):
     if not os.path.isfile(exe) and os.path.basename(sys.argv[0]) != "setup_hf_ffmpeg.py":
         print(f"WARNING {exe} missing: run python scripts/setup_hf_ffmpeg.py (HyperFrames renders will fail)", file=sys.stderr)
     return exe
+
+
+def ff_filter_path(p):
+    """a file path inside an ffmpeg filter option (lut3d=file=...): p as is; on Windows quoted with forward slashes and
+    the drive colon escaped ('D\\:/x/y.cube'), since a bare 'D:' ends the option"""
+    if not IS_WIN:
+        return p
+    return "'" + str(p).replace("\\", "/").replace(":", "\\:") + "'"
 
 
 def _wsl_bash(p):
