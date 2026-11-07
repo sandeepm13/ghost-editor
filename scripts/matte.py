@@ -22,7 +22,7 @@ ranges are already covered (same source, same settings) is a no-op.
 Models (weights MIT; rembg's default `bria-rmbg` is refused: it needs a paid licence):
   birefnet-portrait (default), birefnet-hrsod, birefnet-general-lite, ben2-base (ONNX only)
 Backends:
-  torch  BiRefNet code + safetensors from huggingface.co/ZhengPeng7/<repo>, fp16 on Apple MPS
+  torch  BiRefNet code + safetensors from huggingface.co/ZhengPeng7/<repo>, fp16 on Apple MPS (or NVIDIA CUDA)
   ort    rembg session (ONNX Runtime), provider cpu (coreml never finished compiling BiRefNet on an M3)
 """
 from __future__ import annotations
@@ -183,7 +183,7 @@ class Matter:
             if "hf" in self.cfg:
                 try:
                     import torch
-                    if torch.backends.mps.is_available():
+                    if torch.backends.mps.is_available() or torch.cuda.is_available():  # cuda: Windows/NVIDIA
                         backend = "torch"
                 except ImportError:
                     pass
@@ -192,7 +192,7 @@ class Matter:
         if backend == "torch":
             self._load_torch()
             self.size = size
-            self.device_name = "torch-mps-fp16"
+            self.device_name = "torch-cuda-fp16" if self.dev.type == "cuda" else "torch-mps-fp16"
         else:
             self._load_ort(provider, threads)
             self.size = (1024, 1024)  # the ONNX exports have a fixed 1024x1024 input
@@ -209,8 +209,8 @@ class Matter:
         d = hf_dir(self.cfg["hf"])
         m = AutoModelForImageSegmentation.from_pretrained(str(d), trust_remote_code=True)
         self.torch = torch
-        self.dev = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-        self.dtype = torch.float16 if self.dev.type == "mps" else torch.float32
+        self.dev = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
+        self.dtype = torch.float16 if self.dev.type in ("mps", "cuda") else torch.float32
         self.net = m.eval().to(self.dev).to(self.dtype)
 
     def _load_ort(self, provider, threads):
@@ -250,6 +250,8 @@ class Matter:
                 # cache keeps ~6 GB resident and a 16 GB Mac starts swapping GPU buffers
                 self.peak_gb = max(getattr(self, "peak_gb", 0.0), t.mps.driver_allocated_memory() / 2**30)
                 t.mps.empty_cache()
+            elif self.dev.type == "cuda":
+                self.peak_gb = t.cuda.max_memory_allocated() / 2**30
             return y
         y = self.sess.run(None, {self.inp: x})[0][0, 0].astype(np.float32)
         if self.cfg["logits"] is None:  # BEN2 export: decide once from the value range
@@ -441,7 +443,7 @@ def main():
     ap.add_argument("src")
     ap.add_argument("-o", "--out", required=True)
     ap.add_argument("--model", default="birefnet-portrait", choices=list(MODELS))
-    ap.add_argument("--backend", default="auto", choices=["auto", "torch", "ort"], help="auto = torch on Apple MPS if present, else ort")
+    ap.add_argument("--backend", default="auto", choices=["auto", "torch", "ort"], help="auto = torch on Apple MPS or NVIDIA CUDA if present, else ort")
     ap.add_argument("--provider", default="auto", help="ort only: auto(=cpu) | cpu | coreml | coreml-gpu | coreml-ane")
     ap.add_argument("--infer-size", default="1024x1024", help="torch only: model input WxH, multiples of 32 (ort is fixed 1024x1024)")
     ap.add_argument("--threads", type=int, default=0, help="ort intra-op threads (0 = default)")

@@ -142,8 +142,8 @@ class Net:
         t0 = time.time()
         self.name, self.torch = name, torch
         m = AutoModelForImageSegmentation.from_pretrained(str(weights_dir(name)), trust_remote_code=True)
-        self.dev = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-        self.dtype = torch.float16 if self.dev.type == "mps" else torch.float32
+        self.dev = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
+        self.dtype = torch.float16 if self.dev.type in ("mps", "cuda") else torch.float32   # cuda: Windows/NVIDIA
         self.net = m.eval().to(self.dev).to(self.dtype)
         self.big = "lite" not in name
         self.load_s = time.time() - t0
@@ -159,11 +159,15 @@ class Net:
             self.peak_gb = max(self.peak_gb, t.mps.driver_allocated_memory() / 2**30)
             if self.big:  # see matte.py: without this a swin-L session keeps ~6 GB resident on a 16 GB Mac
                 t.mps.empty_cache()
+        elif self.dev.type == "cuda":
+            self.peak_gb = t.cuda.max_memory_allocated() / 2**30
         return y
 
     def sync(self):
         if self.dev.type == "mps":
             self.torch.mps.synchronize()
+        elif self.dev.type == "cuda":
+            self.torch.cuda.synchronize()
 
     def predict(self, rgb: np.ndarray, size) -> np.ndarray:
         """Alpha (float32 0..1) for one RGB uint8 image of any size, inferred at `size` (w, h)."""
@@ -499,6 +503,12 @@ def bench(src, ss, nframes=30, configs=("portrait@1024", "lite@1024", "lite@768"
 
 
 def platform_name():
+    if sys.platform == "win32":   # no sysctl: CPU + RAM + NVIDIA GPU (plat.machine_name)
+        try:
+            from plat import machine_name
+            return machine_name()
+        except Exception:
+            return sys.platform
     try:
         chip = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True).stdout.strip()
         mem = int(subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True).stdout) / 2**30

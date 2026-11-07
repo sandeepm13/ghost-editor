@@ -120,7 +120,7 @@ def make(stocks, name, look, out_dir, size, split=True):
         if txt.startswith("TITLE "):
             p.write_text(f'TITLE "{p.stem}"' + txt[txt.index("\n"):])
     print(f"  {name}: {', '.join(Path(f).name for f in files.values())} ({time.time() - t:.1f}s)")
-    return {k: str(Path(v).relative_to(out_dir)) for k, v in files.items()}
+    return {k: Path(v).relative_to(out_dir).as_posix() for k, v in files.items()}  # "split/x.cube" on Windows too
 
 
 def main():

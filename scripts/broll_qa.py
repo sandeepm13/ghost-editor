@@ -80,6 +80,7 @@ except AttributeError:
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import grade_lib as G  # noqa: E402
+from plat import IS_WIN, ocr_cmd  # noqa: E402
 
 MODELS = os.path.join(HERE, "..", "library", "models")
 YUNET = ("face_detection_yunet_2023mar.onnx", "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx")
@@ -93,6 +94,9 @@ PROFILES = {
 GFX_MEDIAN_MAX, GFX_ANIM_MIN = 2.5, 50.0
 CAP_PX_MIN, CAP_CONTRAST_MIN = 48, 3.0
 CAP_RATIO = 0.93     # Vision line-box height / CSS font-size: 0.85-1.06 on renders with known sizes (54 px -> 50, 92 -> 98)
+CAP_RATIO_RAPID = 1.06  # Windows (RapidOCR, ocr_text_rapid.py), measured: 15 renders at 48/54/64/92/120 px, events at 48-54 px:
+                        # Geist 1.06, Montserrat 1.15, Arial house 1.25 (pooled 1.13; 0.96-1.06 at 120 px). The lowest font's
+                        # value: nothing >= 54 px reads small in any of them (docs/WINDOWS-PORT.md)
 FREEZE_MAX = 0.2
 KEYINT_MAX = 1.0
 SPK_TH, MINW = 0.40, 0.05          # SFace cosine to the speaker; faces under 5 % of the frame width are UI avatars
@@ -534,11 +538,12 @@ def context_visible(ren_g, src_g, A, box):
 
 # ------------------------------------------------------------------ OCR
 def ocr(paths):
-    if sys.platform != "darwin" or not shutil.which("osascript"):
+    cmd = ocr_cmd()   # macOS Vision (ocr_text.js); on Windows RapidOCR (ocr_text_rapid.py)
+    if cmd is None:
         return None
     out = {}
     for i in range(0, len(paths), 40):
-        r = subprocess.run(["osascript", "-l", "JavaScript", os.path.join(HERE, "ocr_text.js")] + paths[i:i + 40], capture_output=True, text=True)
+        r = subprocess.run(cmd + paths[i:i + 40], capture_output=True, text=True)
         for line in r.stdout.splitlines():
             try:
                 j = json.loads(line)
@@ -927,7 +932,7 @@ def analyse(video, project=None, profile="talking-head", words=None, allow_hold=
         log(f"  OCR on {len(imgs)} frames...")
         res = ocr(imgs)
         if res is None:
-            ocr_note = "OCR unavailable (needs macOS osascript): captions not checked"
+            ocr_note = f"OCR unavailable (needs {'rapidocr-onnxruntime' if IS_WIN else 'macOS osascript'}): captions not checked"
         else:
             spoken = [(w["s"], w["e"], norm(w["w"])) for w in (words or []) if norm(w["w"])]
             cyr = sum(bool(re.search("[а-яё]", w[2])) for w in spoken) > 0.5 * max(1, len(spoken))
@@ -965,7 +970,7 @@ def analyse(video, project=None, profile="talking-head", words=None, allow_hold=
                         continue
                     if img is None:
                         img = cv2.imread(p)
-                    reads.append({"t": round(t, 2), "text": ln["text"], "key": " ".join(toks), "px": bx[3] / CAP_RATIO, "contrast": text_contrast(img, bx), "y": round(bx[1])})
+                    reads.append({"t": round(t, 2), "text": ln["text"], "key": " ".join(toks), "px": bx[3] / (CAP_RATIO_RAPID if IS_WIN else CAP_RATIO), "contrast": text_contrast(img, bx), "y": round(bx[1])})
             latin = {x for x, n in latin_reads.items() if n >= 2}
             for r in sorted(reads, key=lambda r: r["t"]):          # one event = the same text on consecutive reads
                 e = next((e for e in caps if e["key"] == r["key"] and r["t"] - e["t1"] <= 0.45), None)

@@ -284,8 +284,9 @@ def is_hdr(info):
 SCALE_FLAGS = "accurate_rnd+full_chroma_int"
 STILL_EXT = lambda p: os.path.splitext(p)[1].lower() in (".jpg", ".jpeg", ".png", ".webp")
 
-OWN_ROOTS = [os.path.expanduser(r) for r in ("~/Pictures/Photos Library.photoslibrary", "~/Movies",
-                                             "~/Library/CloudStorage")]
+from plat import own_footage_roots  # noqa: E402  (Windows: Pictures / Videos / Camera Roll or $OWN_FOOTAGE_ROOTS)
+OWN_ROOTS = own_footage_roots([os.path.expanduser(r) for r in ("~/Pictures/Photos Library.photoslibrary", "~/Movies",
+                                                               "~/Library/CloudStorage")])
 
 
 def guess_kind(path):
@@ -344,7 +345,8 @@ def sdr_vf(src, cube):
     if not tr:
         return ""
     write_cube(cube, dict(IDENT), tr)
-    return (f"scale=in_color_matrix=bt2020:flags={SCALE_FLAGS},format=rgb48le,lut3d=file={cube}:interp=tetrahedral,"
+    from plat import ff_filter_path
+    return (f"scale=in_color_matrix=bt2020:flags={SCALE_FLAGS},format=rgb48le,lut3d=file={ff_filter_path(cube)}:interp=tetrahedral,"
             f"scale=out_color_matrix=bt709:out_range=tv:flags={SCALE_FLAGS},format=yuv420p,"
             f"setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv")   # frame tags win over -color_trc
 

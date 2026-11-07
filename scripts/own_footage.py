@@ -38,11 +38,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import grade_lib as G  # noqa: E402
 from broll_qa import Faces, decode, cover_size  # noqa: E402
+from plat import own_footage_roots  # noqa: E402
 
 ME = os.path.join(HERE, "..", "library", "me")
 REF = os.path.join(ME, "face_ref.npz")
 INDEX = os.path.join(ME, "footage_index.json")
-ROOTS = [os.path.expanduser(p) for p in ("~/Pictures/Photos Library.photoslibrary/originals", "~/Movies")]
+ROOTS = own_footage_roots([os.path.expanduser(p) for p in ("~/Pictures/Photos Library.photoslibrary/originals", "~/Movies")])
 VIDEO = re.compile(r"\.(mov|mp4|m4v)$", re.I)
 SKIP = re.compile(r"(/\.|/Telegram|/CapCut/|/renders?/|/proxies|/\.Trash)", re.I)
 TH, MINW, TINY = 0.40, 0.04, 0.04
@@ -202,7 +203,7 @@ def cmd_index(a):
             print(f"skip {r} (not on this Mac)")
             continue
         for dp, _, fn in os.walk(r):
-            if SKIP.search(dp + "/"):
+            if SKIP.search(dp.replace(os.sep, "/") + "/"):   # Windows paths use \ (on macOS os.sep is / already)
                 continue
             for f in fn:
                 if VIDEO.search(f):
