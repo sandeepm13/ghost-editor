@@ -16,6 +16,7 @@ is unchanged; only sys.platform == "win32" takes the other branch. Change log: d
     ff_filter_path(p)          p; on Windows 'D\\:/x/y.cube' for an ffmpeg filter option
     open_path(p)               `open p` (default app / browser); on Windows os.startfile
     ocr_cmd()                  osascript + ocr_text.js (macOS Vision); on Windows python ocr_text_rapid.py (RapidOCR)
+    own_footage_roots(roots)   roots; on Windows $OWN_FOOTAGE_ROOTS or the existing Pictures / Videos / Camera Roll
     lock_nb(f) / unlock(f)     fcntl.flock LOCK_EX|LOCK_NB / LOCK_UN; on Windows msvcrt.locking (no fcntl there)
     cuda_dlls()                None; on Windows torch\\lib (CUDA 12 + cuDNN 9 DLLs) first on PATH for faster-whisper
 """
@@ -166,6 +167,50 @@ def ocr_cmd():
     if importlib.util.find_spec("rapidocr_onnxruntime") is None:
         return None
     return [sys.executable, os.path.join(here, "ocr_text_rapid.py")]
+
+
+_KNOWN_FOLDERS = {"Pictures": "{33E28130-4E1E-4676-835A-98395C3BC3BB}", "Videos": "{18989B1D-99B5-455B-841C-AB7C74E4DDFC}",
+                  "CameraRoll": "{AB5FB87B-7CE2-4F83-915D-550846C9DC3A}"}
+
+
+def _known_folder(name):
+    """a Windows known folder's real path (Pictures / Videos may be redirected into OneDrive), or None"""
+    import ctypes
+    from ctypes import wintypes
+
+    class GUID(ctypes.Structure):
+        _fields_ = [("d1", wintypes.DWORD), ("d2", wintypes.WORD), ("d3", wintypes.WORD), ("d4", ctypes.c_ubyte * 8)]
+
+    g = GUID()
+    if ctypes.oledll.ole32.CLSIDFromString(_KNOWN_FOLDERS[name], ctypes.byref(g)) != 0:
+        return None
+    p = ctypes.c_wchar_p()
+    try:
+        ctypes.windll.shell32.SHGetKnownFolderPath(ctypes.byref(g), 0, None, ctypes.byref(p))
+        return p.value
+    except OSError:
+        return None
+    finally:
+        ctypes.windll.ole32.CoTaskMemFree(p)
+
+
+def own_footage_roots(roots):
+    """the folders the user's own footage lives in: `roots` (the macOS list) as given; on Windows $OWN_FOOTAGE_ROOTS
+    (folders separated by ';') when set, else whichever of ~/Pictures, ~/Videos, the Pictures / Videos / Camera Roll
+    known folders (often redirected into OneDrive) and ~/OneDrive/Pictures/Camera Roll exist"""
+    if not IS_WIN:
+        return roots
+    env = os.environ.get("OWN_FOOTAGE_ROOTS")
+    if env:
+        return [os.path.abspath(os.path.expanduser(r.strip())) for r in env.split(os.pathsep) if r.strip()]
+    cands = [os.path.expanduser(os.path.join("~", "Pictures")), os.path.expanduser(os.path.join("~", "Videos"))]
+    cands += [_known_folder(k) for k in ("Pictures", "Videos", "CameraRoll")]
+    cands.append(os.path.expanduser(os.path.join("~", "OneDrive", "Pictures", "Camera Roll")))
+    out = []
+    for c in cands:
+        if c and os.path.isdir(c) and os.path.normcase(os.path.abspath(c)) not in [os.path.normcase(o) for o in out]:
+            out.append(os.path.abspath(c))
+    return out
 
 
 def open_path(p):

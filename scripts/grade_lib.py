@@ -284,8 +284,9 @@ def is_hdr(info):
 SCALE_FLAGS = "accurate_rnd+full_chroma_int"
 STILL_EXT = lambda p: os.path.splitext(p)[1].lower() in (".jpg", ".jpeg", ".png", ".webp")
 
-OWN_ROOTS = [os.path.expanduser(r) for r in ("~/Pictures/Photos Library.photoslibrary", "~/Movies",
-                                             "~/Library/CloudStorage")]
+from plat import own_footage_roots  # noqa: E402  (Windows: Pictures / Videos / Camera Roll or $OWN_FOOTAGE_ROOTS)
+OWN_ROOTS = own_footage_roots([os.path.expanduser(r) for r in ("~/Pictures/Photos Library.photoslibrary", "~/Movies",
+                                                               "~/Library/CloudStorage")])
 
 
 def guess_kind(path):
