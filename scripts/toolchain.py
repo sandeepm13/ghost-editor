@@ -13,7 +13,7 @@ compares it with the others' last record: no network or login to the other machi
 What changes the output (compare exits 1): ffmpeg major.minor and its x264 (every encode, the voice chain, HyperFrames'
 own encode), libass, the HyperFrames version (scripts/HF_VERSION, or an HF_VERSION override) and its headless Chrome,
 MediaPipe (facescan.py flags -> plan_cut.py edges), OpenCV major.minor (face_track.py placement), the whisper backend
-(mlx_whisper vs openai-whisper: different words and times), silero-vad (speech islands), numpy major.
+(mlx_whisper vs openai-whisper vs faster-whisper with GHOST_ASR=faster: different words and times), silero-vad (speech islands), numpy major.
 What does not (printed as info): node, the Python minor version, google-genai, patch versions.
 """
 import argparse, glob, json, os, re, shutil, socket, subprocess, sys, time
@@ -27,7 +27,8 @@ PYPROBE = r"""
 import json, sys
 v = {"python": sys.version.split()[0]}
 for name, mod in [("numpy", "numpy"), ("opencv", "cv2"), ("mediapipe", "mediapipe"), ("google-genai", "google.genai"),
-                  ("openai-whisper", "whisper"), ("mlx-whisper", "mlx_whisper"), ("silero-vad", "silero_vad"), ("torch", "torch")]:
+                  ("openai-whisper", "whisper"), ("mlx-whisper", "mlx_whisper"), ("silero-vad", "silero_vad"), ("torch", "torch"),
+                  ("faster-whisper", "faster_whisper"), ("ctranslate2", "ctranslate2")]:
     try:
         m = __import__(mod, fromlist=["_"])
         v[name] = getattr(m, "__version__", None) or "installed"
@@ -85,6 +86,8 @@ def hf_pinned():
 
 def snapshot():
     fp = {"host": host(), "date": time.strftime("%Y-%m-%d %H:%M"), "skill_commit": run(["git", "-C", SKILL, "rev-parse", "--short", "HEAD"]).strip()}
+    if os.environ.get("GHOST_ASR"):
+        fp["asr"] = os.environ["GHOST_ASR"]  # transcribe.asr()'s backend choice (faster); recorded so a compare uses each host's own
     v = run(["ffmpeg", "-hide_banner", "-version"]).split("\n")[0]
     m = re.search(r"ffmpeg version (\S+)", v)
     conf = run(["ffmpeg", "-hide_banner", "-buildconf"])
@@ -121,7 +124,10 @@ def mm(v, n=2):
 
 
 def whisper_backend(fp):
-    """what islands_tx.py / transcribe.py --backend mlx actually run on this machine"""
+    """what islands_tx.py / transcribe.py --backend mlx actually run on this machine (faster-whisper with GHOST_ASR=faster)"""
+    mp = fp.get("media_python") or {}
+    if fp.get("asr") == "faster" and mp.get("faster-whisper"):
+        return f"faster-whisper {mp['faster-whisper']} (ctranslate2 {mp.get('ctranslate2')})"
     for k in ("media_python", "mlx_python"):
         if (fp.get(k) or {}).get("mlx-whisper"):
             return "mlx-whisper " + fp[k]["mlx-whisper"]

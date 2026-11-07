@@ -16,6 +16,7 @@ is unchanged; only sys.platform == "win32" takes the other branch. Change log: d
     ff_filter_path(p)          p; on Windows 'D\\:/x/y.cube' for an ffmpeg filter option
     open_path(p)               `open p` (default app / browser); on Windows os.startfile
     lock_nb(f) / unlock(f)     fcntl.flock LOCK_EX|LOCK_NB / LOCK_UN; on Windows msvcrt.locking (no fcntl there)
+    cuda_dlls()                None; on Windows torch\\lib (CUDA 12 + cuDNN 9 DLLs) first on PATH for faster-whisper
 """
 import functools
 import os
@@ -129,6 +130,26 @@ def unlock(f):
     import msvcrt
     f.seek(0)
     msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+def cuda_dlls():
+    """the CUDA 12 / cuDNN 9 DLLs CTranslate2 (faster-whisper) needs: nothing to do off Windows (None); on Windows
+    torch's own copies (torch\\lib of the cu126 wheel) go first on PATH for this process. CTranslate2 loads
+    cublas64_12.dll lazily with a bare LoadLibrary, which searches PATH and ignores os.add_dll_directory alone.
+    Returns the folder, or None when torch has no CUDA DLLs (faster-whisper then runs on the CPU)."""
+    if not IS_WIN:
+        return None
+    import importlib.util
+    spec = importlib.util.find_spec("torch")
+    if not spec or not spec.submodule_search_locations:
+        return None
+    lib = os.path.join(list(spec.submodule_search_locations)[0], "lib")
+    if not os.path.isfile(os.path.join(lib, "cublas64_12.dll")):
+        return None
+    if lib not in os.environ.get("PATH", "").split(os.pathsep):
+        os.environ["PATH"] = lib + os.pathsep + os.environ.get("PATH", "")
+        os.add_dll_directory(lib)
+    return lib
 
 
 def open_path(p):
