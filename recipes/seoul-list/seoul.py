@@ -44,6 +44,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 R = HERE                                            # this recipe: build.mjs, prep.py
 SK = os.path.abspath(os.path.join(HERE, "..", ".."))  # the skill: scripts/, library/
 PY = os.environ.get("MEDIA_PY") or sys.executable
+sys.path.append(os.path.join(SK, "scripts"))
+from plat import link_or_copy  # noqa: E402
 TAG = "seoul"       # the reel's label in the manifest; setup(tag=...) or `seoul.TAG = ...` sets it
 REFUSED = []        # inserts the people / line gate refused (the reel falls back to the speaker's face or to type there)
 FPS = 30
@@ -97,7 +99,7 @@ def setup(project, cut=None, tag=None, clip=None):
     vsrc = f"{cut}/assets/voice.wav"
     if os.path.exists(vsrc) and not os.path.lexists(f"{P}/assets/voice.wav"):
         os.makedirs(f"{P}/assets", exist_ok=True)
-        os.symlink(vsrc, f"{P}/assets/voice.wav")
+        link_or_copy(vsrc, f"{P}/assets/voice.wav")
     st = f"{P}/build/plate_stats.json"
     if not os.path.exists(st):          # reference grade of the plate as shot (wide), computed here: no cache file beside the shared plate
         sh([PY, "-c", f"import sys, json; sys.path.insert(0, '{SK}/scripts'); import grade_lib as g; "

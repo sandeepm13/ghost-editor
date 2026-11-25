@@ -34,3 +34,6 @@ library/toolchain/
 
 # Style library loops and posters (scripts/style_page.py previews; rebuilt from styles/registry.json, synced with the library)
 library/style-previews/
+
+# Windows: the HyperFrames ffmpeg launchers, built per machine by scripts/setup_hf_ffmpeg.py
+scripts/win-bin/

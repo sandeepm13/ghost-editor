@@ -178,7 +178,7 @@ json.dump(mp, open(os.path.join(HERE, "build/edl_map.json"), "w"), ensure_ascii=
 def frames(f):
     r = subprocess.run(["ffprobe", "-v", "error", "-count_packets", "-select_streams", "v:0", "-show_entries", "stream=nb_read_packets",
                         "-of", "csv=p=0", f], capture_output=True, text=True).stdout.strip()
-    return int(r or 0)
+    return int(r.split(",")[0] or 0)   # a stream with side data prints "1646," (rawcut_prep.sh strips it too)
 
 
 vdur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", os.path.join(HERE, "assets/voice.wav")],

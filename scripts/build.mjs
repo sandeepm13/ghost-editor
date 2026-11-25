@@ -38,6 +38,7 @@ import { TEMPLATE_NAMES, buildTemplateCaptions } from "./lib/caption-templates.m
 import { aiTag } from "./lib/ai-tag.mjs";
 import { findTaste, loadTaste, applyTaste, checkTaste, bannedSfx } from "./lib/taste.mjs";
 import { STAN_CSS, isStanBeat, stanPrepare, stanBeat, stanPipTweens, buildChestCaptions, stanMatteWindows } from "./lib/stan.mjs";
+import { venvPython, npxCmd } from "./lib/plat.mjs";
 
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LIB = path.join(SKILL, "library");
@@ -373,7 +374,7 @@ let cutoutHtml = "";
 const cutoutBeats = (spec.beats || []).filter((b) => b.type === "cutout");
 const cutoutWins = []; // -> build/cutouts.json, what each window was cut from (qa.py re-counts the clips)
 if (cutoutBeats.length) {
-  const py = path.join(process.env.MATTE_VENV || path.join(os.homedir(), ".venvs", "ghost-matte"), "bin", "python");
+  const py = venvPython(process.env.MATTE_VENV || path.join(os.homedir(), ".venvs", "ghost-matte"));
   if (!fs.existsSync(py)) die(`cutout beats need the matte venv: bash ${path.join(SKILL, "scripts", "setup_matte.sh")}`);
   const [fn, fd] = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0",
     path.resolve(proj, SRC)]).toString().trim().split("/").map(Number);
@@ -471,7 +472,7 @@ if (spec.matte || panelMatte.length) {
     }
   }
   const venv = process.env.MATTE_VENV || path.join(os.homedir(), ".venvs", "ghost-matte");
-  const py = path.join(venv, "bin", "python");
+  const py = venvPython(venv);
   if (!spec.matte && !fs.existsSync(py)) {
     warn.push(`panels behind the speaker need the matte venv (bash ${path.join(SKILL, "scripts", "setup_matte.sh")}); without it the panels cover the speaker's head`);
   } else if (mcfg.engine !== "hyperframes" && fs.existsSync(py)) {
@@ -486,7 +487,8 @@ if (spec.matte || panelMatte.length) {
   } else if (!fs.existsSync(mp)) {
     if (mcfg.engine !== "hyperframes") warn.push(`matte: BiRefNet venv not set up (bash ${path.join(SKILL, "scripts", "setup_matte.sh")}); used hyperframes remove-background (u2net: softer, jumpier edges)`);
     console.log("cutting the speaker out (hyperframes remove-background, ~4 fps; cached in assets/talk-matte.webm)...");
-    execFileSync("npx", ["-y", HF, "remove-background", path.resolve(proj, SRC), "-o", mp], { stdio: ["ignore", "ignore", "pipe"], cwd: proj, maxBuffer: 1 << 28 }); console.log("  matte done");
+    const [npx, ...npxArgs] = npxCmd("-y", HF, "remove-background", path.resolve(proj, SRC), "-o", mp);
+    execFileSync(npx, npxArgs, { stdio: ["ignore", "ignore", "pipe"], cwd: proj, maxBuffer: 1 << 28 }); console.log("  matte done");
   }
   if (spec.matte) matteHtml = takes.map((k, i) => `
       <video id="matte-${i}" class="matte" src="assets/talk-matte.webm" data-start="${fgrid(k.f0)}" data-duration="${fgrid(k.frames)}" data-media-start="${k.a}" data-track-index="2" muted playsinline></video>`).join("");
@@ -686,7 +688,7 @@ for (const b of beatsList) {
     }
     case "broll": {
       // full-bleed video cutaway (e.g. AI B-roll): timed muted video inside an UNtimed wrapper, like meme clips;
-      // captions (z 8) stay on top. "in" = seconds into the clip, "zoom" = [from, to] slow push.
+      // captions (z 8) stay on top unless captions: false. "in" = seconds into the clip, "zoom" = [from, to] slow push.
       // mode "split": the clip fills the top `h` px and the speaker plate slides down into the bottom panel
       const src = userAsset(b.src);
       const [z0, z1] = b.zoom ?? [1.0, 1.08];
@@ -698,6 +700,7 @@ for (const b of beatsList) {
       tl.push(`ft("#${id}-v", { scale: ${z0} }, { scale: ${z1}, duration: ${dur}, ease: "none" }, ${t0});`);
       tl.push(`tl.to("#${id}-in", { autoAlpha: 0, duration: 0.1 }, ${r3(t1 - 0.1)});`);
       if (b.sfx) beatSfx(b, t0, null, "broll in");
+      if (b.captions === false) hiddenCaps.push([t0, t1]); // the clip says the line itself (e.g. an animation): no caption on top
       break;
     }
     case "title": {

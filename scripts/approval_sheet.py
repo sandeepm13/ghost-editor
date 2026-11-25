@@ -34,6 +34,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hf_version import hf  # noqa: E402  (the pinned HyperFrames CLI, scripts/HF_VERSION)
+from plat import open_path, venv_python  # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from reelproj import (beats_timeline, caption_at, caption_groups, fmt_t, load_project,  # noqa: E402
                       parse_build_log, predicted_silences, run_build, sh, take_words, taste_mjs)
@@ -157,7 +158,7 @@ def make_cover(pr, tmp):
     cv = {"headline": cv} if isinstance(cv, str) else cv
     if not cv.get("headline"):
         return [], "cover: needs a headline (words the speaker says; 'A|B|*C*', *line* = accent box)"
-    py = os.path.join(os.environ.get("MATTE_VENV") or os.path.expanduser("~/.venvs/ghost-matte"), "bin", "python")
+    py = venv_python(os.environ.get("MATTE_VENV") or os.path.expanduser("~/.venvs/ghost-matte"))
     if not os.path.exists(py):
         return [], f"cover: the matte venv is missing (bash {os.path.join(pr.skill, 'scripts', 'setup_matte.sh')}); no cover made"
     look = pr.spec.get("look") or {}
@@ -665,7 +666,7 @@ def main():
     print(f"{len(frames)} frames in {took:.0f} s; {n_err} errors, {n_warn} warnings")
     print(f"-> {out}  ({os.path.getsize(out) / 1e6:.1f} MB)")
     if a.open:
-        subprocess.run(["open", out])
+        open_path(out)
 
 
 if __name__ == "__main__":

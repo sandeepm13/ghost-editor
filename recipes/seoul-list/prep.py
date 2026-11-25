@@ -28,6 +28,8 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.abspath(os.path.join(HERE, "..", ".."))
+sys.path.append(os.path.join(SKILL, "scripts"))
+from plat import venv_python  # noqa: E402
 FPS = 30
 SR = 48000
 
@@ -138,7 +140,7 @@ def cmd_still(a):
 def cmd_cutout(a):
     import numpy as np
     from PIL import Image
-    py = os.path.join(os.environ.get("MATTE_VENV", os.path.expanduser("~/.venvs/ghost-matte")), "bin", "python")
+    py = venv_python(os.environ.get("MATTE_VENV", os.path.expanduser("~/.venvs/ghost-matte")))
     if not os.path.exists(py):
         sys.exit("matte venv missing: bash $S/scripts/setup_matte.sh")
     with tempfile.TemporaryDirectory() as td:

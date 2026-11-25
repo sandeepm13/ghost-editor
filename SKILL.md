@@ -75,6 +75,16 @@ first (SFX, memes, music and the animated emoji aren't in git). Say what is miss
 improvise around it. Lines marked `opt` are optional tools with their own `scripts/setup_<x>.sh`
 (BiRefNet matte, audio QA, film-look LUTs, caption metrics); the core works without them.
 
+### 0b. On Windows (docs/INSTALL-WINDOWS.md)
+- Run `.sh` scripts with Git Bash only, never WSL's `bash.exe`. Quote every path (user folders can have spaces).
+- `python3 ...` in these docs = `python ...` (the project venv). A venv's programs are in `Scripts\` (`python.exe`), not `bin/`; the
+  scripts find them themselves (scripts/plat.py, scripts/lib/plat.sh).
+- Once per machine: `python $S/scripts/setup_hf_ffmpeg.py` (the ffmpeg launchers HyperFrames needs; doctor checks them).
+- Whisper: openai-whisper turbo on CUDA by default (needs ~3.3 GB VRAM); `transcribe.py --backend faster` / `GHOST_ASR=faster`
+  is faster-whisper (~1.1 GB, 12x faster). Matte, cutout and denoise run on CUDA (fp16).
+- Caption OCR in broll_qa.py is RapidOCR (ocr_text_rapid.py; Latin only: Cyrillic captions aren't checked on Windows).
+- Renders need several GB in %TEMP%: when C: is short, set TEMP and TMP to another drive before finals.py.
+
 ### 1. Prep and look
 ```bash
 bash $S/scripts/prep.sh <IMG_xxxx.MOV> $P

@@ -57,4 +57,8 @@ try:
     b = ordered(args)
 except Exception:
     b = None
+if sys.platform == "win32":  # Windows has no exec: os.execv starts ffmpeg and exits at once with 0, so wait for it here
+    import subprocess
+    rc = subprocess.run([real] + (b or args)).returncode
+    sys.exit(rc - 2**32 if rc >= 2**31 else rc)
 os.execv(real, [real] + (b or args))

@@ -30,7 +30,8 @@ the composition's own fonts; shots go through insert_prep.py like any other pict
 import argparse, collections, colorsys, html, json, os, re, shutil, subprocess, sys, tempfile, time, urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MEDIA = os.path.expanduser("~/.venvs/media/bin/python")
+from plat import venv_python  # noqa: E402
+MEDIA = venv_python(os.path.expanduser("~/.venvs/media"))
 try:
     import requests
     from PIL import Image, ImageDraw, ImageFont

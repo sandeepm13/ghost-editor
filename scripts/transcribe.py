@@ -3,7 +3,7 @@
 and print the segment table: the take map you choose takes from.
 
     transcribe.py <project>/assets/talk.mp4 --out <project>/build/words.whisper.json \
-        [--model turbo] [--lang en] [--raw existing.json] [--backend whisper|mlx] [--mlx-model ~/.cache/mlxw-turbo]
+        [--model turbo] [--lang en] [--raw existing.json] [--backend whisper|mlx|faster] [--mlx-model ~/.cache/mlxw-turbo]
 
 Times are ORIGINAL-recording seconds, the unit reel.json uses. Product names
 get mangled; fix them in reel.json -> captions.fixes, not here.
@@ -13,6 +13,10 @@ this python lacks mlx_whisper the script re-runs itself in $MLXW_PY or ~/.venvs/
 sentence), temperature fallback 0/0.2/0.4 (the CLI cannot cap it: 0..1 in steps of 0.2), no_speech 0.6, compression
 ratio 2.2, hallucination_silence_threshold 1.0. The fallback samples: the mlx and python-API paths seed it (repeatable
 runs); the whisper CLI cannot be seeded.
+faster = faster-whisper (CTranslate2) turbo, int8_float16 on CUDA (int8 on the CPU without a GPU): ~half the VRAM of
+openai-whisper fp32 (made for a 4 GB card). Opt-in: --backend faster here, GHOST_ASR=faster for asr() (islands_tx.py,
+subcheck.py). Same anti-merge settings (temperature capped at 0/0.2/0.4 like mlx), the same search as the path it
+replaces (beam 5 / best_of 5 like the CLI here, greedy in asr() like the python API), seeded; the same json shape.
 Importable: load_words(path) (islands.json / whisper json / flat list -> [{w, a, b, p}]), asr(lang) for the per-piece
 transcribers (islands_tx.py, subcheck.py).
 """
@@ -62,13 +66,48 @@ def seed(backend, n=0):
     if backend == "mlx":
         import mlx.core as mx
         mx.random.seed(n)
+    elif backend == "faster":
+        import ctranslate2
+        ctranslate2.set_random_seed(n)
     else:
         import torch
         torch.manual_seed(n)
 
 
-def asr(lang, mlx_model=MLX_MODEL, whisper_model="turbo"):
-    """-> (backend name, f(audio path or 16 kHz float32 array, **decode) -> whisper result dict); mlx first"""
+def faster_model(name):
+    """a faster-whisper model: CUDA int8_float16 when CTranslate2 sees a GPU, else CPU int8"""
+    from plat import cuda_dlls
+    cuda_dlls()  # Windows: torch's CUDA 12 / cuDNN 9 DLLs for CTranslate2
+    import ctranslate2
+    from faster_whisper import WhisperModel
+    dev, ct = ("cuda", "int8_float16") if ctranslate2.get_cuda_device_count() > 0 else ("cpu", "int8")
+    print(f"faster-whisper {name} on {dev} ({ct})", file=sys.stderr, flush=True)
+    return WhisperModel(name, device=dev, compute_type=ct)
+
+
+def faster_run(m, x, lang, **kw):
+    """faster-whisper transcribe -> the openai-whisper result dict ({text, segments: [{..., words: [{word, start, end,
+    probability}]}], language}); x = an audio path or a 16 kHz float32 array"""
+    kw.pop("verbose", None)
+    if isinstance(x, str):  # decode with ffmpeg, not faster-whisper's PyAV path (av 19 dropped the metadata_errors it passes)
+        import numpy as np
+        x = np.frombuffer(subprocess.run(["ffmpeg", "-v", "error", "-i", x, "-vn", "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
+                                         capture_output=True, check=True).stdout, np.float32)
+    segs, info = m.transcribe(x, language=lang, **kw)
+    out = [{"id": i, "start": s.start, "end": s.end, "text": s.text, "temperature": s.temperature,
+            "avg_logprob": s.avg_logprob, "compression_ratio": s.compression_ratio, "no_speech_prob": s.no_speech_prob,
+            "words": [{"word": w.word, "start": w.start, "end": w.end, "probability": w.probability} for w in s.words or []]}
+           for i, s in enumerate(segs)]
+    return {"text": "".join(s["text"] for s in out), "segments": out, "language": info.language}
+
+
+def asr(lang, mlx_model=MLX_MODEL, whisper_model="turbo", backend=None):
+    """-> (backend name, f(audio path or 16 kHz float32 array, **decode) -> whisper result dict); mlx first.
+    backend "faster" (or GHOST_ASR=faster) picks faster-whisper"""
+    if (backend or os.environ.get("GHOST_ASR")) == "faster":
+        seed("faster")
+        m = faster_model(whisper_model)
+        return "faster", lambda x, **kw: faster_run(m, x, lang, **{"beam_size": 1, "best_of": 1, **kw})  # greedy, like the python API
     if has_mlx():
         import mlx_whisper
         seed("mlx")
@@ -102,6 +141,9 @@ def transcribe(src, model, lang, backend="whisper", mlx_model=MLX_MODEL):
             seed("mlx")
             return mlx_whisper.transcribe(wav, path_or_hf_repo=os.path.expanduser(mlx_model), language=lang,
                                           word_timestamps=True, **ANTI_MERGE)
+        if backend == "faster":
+            seed("faster")
+            return faster_run(faster_model(model), wav, lang, word_timestamps=True, beam_size=5, best_of=5, **ANTI_MERGE)  # CLI's beam
         cmd = [find_whisper(), wav, "--model", model, "--word_timestamps", "True",
                "--output_format", "json", "--output_dir", td, "--fp16", "False",
                "--condition_on_previous_text", "False", "--temperature", "0", "--temperature_increment_on_fallback", "0.2",
@@ -119,7 +161,7 @@ def main():
     ap.add_argument("--model", default="turbo")
     ap.add_argument("--lang", default=None)
     ap.add_argument("--raw", help="reuse an existing whisper json")
-    ap.add_argument("--backend", choices=("whisper", "mlx"), default="whisper")
+    ap.add_argument("--backend", choices=("whisper", "mlx", "faster"), default="whisper")
     ap.add_argument("--mlx-model", default=MLX_MODEL, help="mlx_whisper model dir (large-v3-turbo)")
     a = ap.parse_args()
     if a.backend == "mlx" and not a.raw and not ensure_mlx(__file__):

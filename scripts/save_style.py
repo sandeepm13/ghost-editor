@@ -31,6 +31,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hf_version import hf  # noqa: E402  (the pinned HyperFrames CLI, scripts/HF_VERSION)
+from plat import link_or_copy  # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from reelproj import DEFAULT_SKILL, beats_timeline, load_project, sh  # noqa: E402
 
@@ -173,7 +174,7 @@ def copy_project(src, dst, reel):
         if os.path.isdir(p):
             shutil.copytree(p, os.path.join(dst, "assets", f), symlinks=True)
         else:
-            os.symlink(os.path.realpath(p), os.path.join(dst, "assets", f))
+            link_or_copy(os.path.realpath(p), os.path.join(dst, "assets", f))
     # build inputs made by other tools: words, face track, pre-rendered transition windows, AI caption tags
     for f in ("words.whisper.json", "face.json", "transitions.json", "ai-tags.json"):
         if os.path.exists(os.path.join(src, "build", f)):

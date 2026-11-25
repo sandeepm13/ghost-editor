@@ -6,13 +6,16 @@
 #   bash scripts/setup_matte.sh            -> ~/.venvs/ghost-matte (override with MATTE_VENV=/path)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+. "$HERE/lib/plat.sh"   # VB=bin (Scripts on Windows), py311, torch_cuda
 V="${MATTE_VENV:-$HOME/.venvs/ghost-matte}"
 PY="${PYTHON311:-$(command -v python3.11 || echo /opt/homebrew/bin/python3.11)}"
-[ -x "$V/bin/python" ] || "$PY" -m venv "$V"
-"$V/bin/pip" install -q --upgrade pip
-"$V/bin/pip" install -q -r "$HERE/matte-requirements.txt"
+[ -z "$IS_WIN" ] || PY="${PYTHON311:-$(py311)}"
+[ -x "$V/$VB/python" ] || { [ -n "$PY" ] || { echo "needs Python 3.11 -> $W311" >&2; exit 1; }; "$PY" -m venv "$V"; }
+"$V/$VB/python" -m pip install -q --upgrade pip
+torch_cuda cu126   # Windows: torch/torchvision +cu126 (NVIDIA); macOS keeps PyPI's (MPS)
+"$V/$VB/pip" install -q -r "$HERE/matte-requirements.txt"
 # warm the weights so the first build does not stall on a download
-"$V/bin/python" -c "import sys; sys.path.insert(0, '$HERE'); import matte; matte.hf_dir('ZhengPeng7/BiRefNet-portrait'); print('weights ok:', matte.CACHE)"
+"$V/$VB/python" -c "import sys; sys.path.insert(0, sys.argv[1]); import matte; matte.hf_dir('ZhengPeng7/BiRefNet-portrait'); print('weights ok:', matte.CACHE)" "$HERE"
 # cutout beats default to BiRefNet_lite (+176 MB); the other models download on first use
-"$V/bin/python" "$HERE/cutout_fx.py" --help >/dev/null && "$V/bin/python" -c "import sys; sys.path.insert(0, '$HERE'); import cutout_fx; cutout_fx.weights_dir('lite'); print('cutout_fx weights ok')"
+"$V/$VB/python" "$HERE/cutout_fx.py" --help >/dev/null && "$V/$VB/python" -c "import sys; sys.path.insert(0, sys.argv[1]); import cutout_fx; cutout_fx.weights_dir('lite'); print('cutout_fx weights ok')" "$HERE"
 echo "matte venv ready: $V"

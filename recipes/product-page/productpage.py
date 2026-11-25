@@ -49,6 +49,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(SKILL, "scripts", "lib"))
+sys.path.append(os.path.join(SKILL, "scripts"))
+from plat import venv_python  # noqa: E402
 import facereel as FR  # noqa: E402
 from facereel import BuildError, esc, norm, r3  # noqa: E402,F401
 
@@ -58,7 +60,7 @@ INK, PAGE, CAPTION = PAL["ink"], PAL["page"], PAL["caption"]
 G0, G1, G2 = PAL["line_art"]
 REF = 25                               # reference frames: n / REF s (DerovIOhToi is 25 fps)
 PILL_BOTTOM = GEO["pill_top"] + GEO["pill_h"]
-GHOST_PY = os.path.expanduser("~/.venvs/ghost-captions/bin/python")
+GHOST_PY = venv_python(os.path.expanduser("~/.venvs/ghost-captions"))
 
 VOICE = {"sans": ("Inter Tight", 800, "normal", "Inter Tight"), "serif": ("Playfair Display Italic", 600, "italic", "Playfair Display"),
          "reg": ("Playfair Display", 400, "normal", "Playfair Display")}

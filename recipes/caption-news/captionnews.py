@@ -43,6 +43,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(os.path.dirname(HERE))
+sys.path.append(os.path.join(SKILL, "scripts"))
+from plat import venv_python  # noqa: E402
 HOUSE = json.load(open(os.path.join(HERE, "house.json"), encoding="utf-8"))
 PAL = HOUSE["palette"]
 LP = HOUSE["layout_px"]
@@ -115,7 +117,7 @@ def ensure_ttf(P, weights=(900, 600)):
                 import fontTools  # noqa: F401
                 py = sys.executable
             except ImportError:                      # the media venv has no brotli: any venv with fontTools + brotli
-                py = os.path.expanduser("~/.venvs/ghost-captions/bin/python")
+                py = venv_python(os.path.expanduser("~/.venvs/ghost-captions"))
             subprocess.run([py, "-c", _CONV, src, dst, str(w)], check=True)
     _TTF[0] = out
     return out

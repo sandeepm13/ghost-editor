@@ -114,6 +114,9 @@ def main():
     ap.add_argument("--crf", type=int, default=24)
     ap.add_argument("--keep-apng", action="store_true", help="keep the 80 MB of APNG originals (default: delete after encoding)")
     a = ap.parse_args()
+    if sys.platform == "win32":  # run with -I, which ignores PYTHONUTF8: a piped stdout would be cp1252 and fail on the glyphs
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
 
     if not shutil.which("ffmpeg"):
         sys.exit("ffmpeg not found")
@@ -127,7 +130,7 @@ def main():
         items = [e for e in items if e["slug"] in only]
     os.makedirs(a.out, exist_ok=True)
     man_path = os.path.join(a.out, "manifest.json")
-    manifest = json.load(open(man_path)) if os.path.exists(man_path) else {"source": REPOS, "licence": "MIT (Microsoft Fluent Emoji)", "items": {}}
+    manifest = json.load(open(man_path, encoding="utf-8")) if os.path.exists(man_path) else {"source": REPOS, "licence": "MIT (Microsoft Fluent Emoji)", "items": {}}
 
     for kind, repo in REPOS.items():
         lic = os.path.join(a.out, f"LICENSE-{repo.split('/')[1]}.txt")
@@ -196,7 +199,7 @@ def main():
             manifest["items"][slug] = {"slug": slug, "glyph": meta.get("glyph", ""), "cldr": meta.get("cldr", folder.lower()),
                                        "kind": kind, "folder": folder, "use": e.get("use", ""), "files": files, "sha256": sha,
                                        "source": src, "repo": f"https://github.com/{repo}", "licence": "MIT", **extra}
-            with open(man_path + ".tmp", "w") as f:
+            with open(man_path + ".tmp", "w", encoding="utf-8") as f:
                 json.dump(manifest, f, ensure_ascii=False, indent=1)
             os.replace(man_path + ".tmp", man_path)
             ok += 1
